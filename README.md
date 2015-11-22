@@ -7,7 +7,6 @@ Experimental image/video Creation
 
 - Generate image/video for https://www.electricobjects.com/
 
-
 ## PS
 
 ᕕ( ᐛ )ᕗ

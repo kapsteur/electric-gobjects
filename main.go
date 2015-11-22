@@ -12,6 +12,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/exec"
 	"time"
 )
 
@@ -29,8 +30,21 @@ type Bit struct {
 }
 
 func main() {
-	now := fmt.Sprintf("%d", time.Now().Unix())
-	os.Mkdir(now, 0777)
+	now := time.Now().Unix()
+
+	blackDir := fmt.Sprintf("%d-black", now)
+	createImages(blackDir, "black")
+	exec.Command("ffmpeg", "-framerate", "10", "-i", blackDir+"/%d.png", "-c:v", "libx264", "-r", "30", "-pix_fmt", "yuv420p", blackDir+".mp4").Start()
+
+	whiteDir := fmt.Sprintf("%d-white", now)
+	createImages(whiteDir, "white")
+	exec.Command("ffmpeg", "-framerate", "10", "-i", whiteDir+"/%d.png", "-c:v", "libx264", "-r", "30", "-pix_fmt", "yuv420p", whiteDir+".mp4").Start()
+
+}
+
+func createImages(dir, mode string) {
+
+	os.Mkdir(dir, 0777)
 
 	//Load font file
 	b, err := ioutil.ReadFile("Arial.ttf")
@@ -76,12 +90,40 @@ func main() {
 	randBit := rand.Perm(len(m))
 
 	//Create each next matrix
-	for i := 1; i < len(randBit); i++ {
+	for i := 0; i < len(randBit); i++ {
 
 		tmpM := make([]Bit, len(m))
 
 		//Copy last matrix
-		copy(tmpM, mm[i-1])
+		copy(tmpM, mm[len(mm)-1])
+
+		//Update one bit
+		tmpBit := tmpM[randBit[i]]
+		if tmpBit.Val == "0" {
+			tmpBit.Val = "1"
+		} else {
+			tmpBit.Val = "0"
+		}
+
+		//Save bit in matrix
+		tmpM[randBit[i]] = tmpBit
+
+		//Append new matrix
+		mm = append(mm, tmpM)
+
+	}
+
+	//Get a random list
+	rand.Seed(time.Now().UnixNano())
+	randBit = rand.Perm(len(m))
+
+	//Create each next matrix
+	for i := 0; i < len(randBit); i++ {
+
+		tmpM := make([]Bit, len(m))
+
+		//Copy last matrix
+		copy(tmpM, mm[len(mm)-1])
 
 		//Update one bit
 		tmpBit := tmpM[randBit[i]]
@@ -100,10 +142,10 @@ func main() {
 	}
 
 	//Create all matrix images
-	for i := 0; i < len(randBit); i++ {
+	for i := 0; i < len(mm); i++ {
 
 		if i%100 == 0 {
-			log.Printf("i:%d/%d", i, len(randBit))
+			log.Printf("i:%d/%d", i, len(mm))
 		}
 
 		//Create template images
@@ -111,13 +153,19 @@ func main() {
 		dst := image.NewNRGBA(image.Rect(0, 0, width, height))
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
-				src.Set(x, y, color.NRGBA{uint8(0), uint8(0), uint8(0), 255})
-				dst.Set(x, y, color.NRGBA{uint8(255), uint8(255), uint8(255), 255})
+				if mode == "black" {
+					src.Set(x, y, color.NRGBA{uint8(255), uint8(255), uint8(255), 255})
+					dst.Set(x, y, color.NRGBA{uint8(0), uint8(0), uint8(0), 255})
+				} else {
+					src.Set(x, y, color.NRGBA{uint8(0), uint8(0), uint8(0), 255})
+					dst.Set(x, y, color.NRGBA{uint8(255), uint8(255), uint8(255), 255})
+				}
+
 			}
 		}
 
 		//Create file
-		f, err := os.OpenFile(fmt.Sprintf("%s/%d.png", now, i), os.O_CREATE|os.O_WRONLY, 0666)
+		f, err := os.OpenFile(fmt.Sprintf("%s/%d.png", dir, i), os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
 			log.Fatalf("OpenFile - Err:%s", err)
 		}
